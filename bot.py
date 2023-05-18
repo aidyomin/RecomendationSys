@@ -185,17 +185,26 @@ async def process_third_film_sent(message: Message, state: FSMContext):
                                                                                             "film_name2": user_dict[message.from_user.id]["second_film"],
                                                                                            "film_name3": user_dict[message.from_user.id]["third_film"]})
 
-    recomendation:str="\n"
-    r.raise_for_status()
-    for key, value in r.json.items():
-        str = str+"\n"+key+ ":"+value
+
+    resp_dict = r.json()
+    print(type(resp_dict))
+    print(resp_dict)
+    recomendation_string:str="\n"
+
+    for anime in resp_dict:
+        print(type(resp_dict[anime]))
+        for key, value in resp_dict[anime].items():
+            recomendation_string= recomendation_string+ "\n"+str(key) +" : "+ str(value)
+
+        recomendation_string= recomendation_string+ "\n"
+
+    print(recomendation_string)
 
 
 
-    await state.update_data(recomendation=str)
+    await state.update_data(recomendation=recomendation_string)
     user_dict[message.from_user.id]= await state.get_data()
-    await message.answer(text=f'Поздравляю {user_dict[message.from_user.id]["name"]}, ты успешно заполнил форму!\n\n'
-                         'Нажми команду /getrecomedation и получишь список того что тебе точно стоит посмотреть)')
+    await message.answer(text='Нажми команду /getrecomedation и получишь список того что тебе точно стоит посмотреть)')
     log(message)
     await state.clear()
 
