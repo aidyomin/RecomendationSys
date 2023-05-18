@@ -1,4 +1,4 @@
-#!/Users/macbookpro13top/Desktop/TG_Bot/venv/bin/python
+#!/Users/macbookpro13top/Desktop/TG_Bot/venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys
