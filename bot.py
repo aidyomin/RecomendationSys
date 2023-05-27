@@ -6,6 +6,9 @@ from aiogram.fsm.state import default_state
 from aiogram.fsm.storage.redis import RedisStorage, Redis
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, PhotoSize)
+from aiogram.types import (KeyboardButton, Message, ReplyKeyboardMarkup,
+                           ReplyKeyboardRemove)
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 import os
 from aiogram.filters import BaseFilter
 from dotenv import load_dotenv
@@ -18,7 +21,6 @@ load_dotenv()
 
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-
 # Инициализируем Redis
 redis: Redis = Redis(host='localhost')
 
@@ -34,18 +36,21 @@ logging.basicConfig(level=logging.INFO)
 # Создаем "базу данных" пользователей
 user_dict: dict[int, dict[int, str ]] = {}
 
+genre_list: list=["comedy","drama","romance","action","thriller","sci_fi","adventure","war","mystery","biography","horror","crime","history","family","fantasy","music","animation","sport","western"]
 
 
 
-
-
+kb_builder_genres: ReplyKeyboardBuilder = ReplyKeyboardBuilder()
+buttons: list[KeyboardButton] = [KeyboardButton(
+                text=f'{genre}') for genre in genre_list]
+kb_builder_genres.row(*buttons,width=4)
 
 class FilmInBase(BaseFilter):
     def __init__(self) -> None:
         pass
 
     async def __call__(self, message: Message) -> bool:
-        r = requests.post('https://90a5-89-109-50-12.ngrok-free.app/api/v1/check_film', json={"film_name":  message.text})
+        r = requests.post('https://039c-89-109-50-12.ngrok-free.app/api/v1/check_film', json={"film_name":  message.text})
         print(message.text)
         print(r.status_code)
         if r.status_code== 200:
@@ -55,12 +60,32 @@ class FilmInBase(BaseFilter):
             print('NOOOO')
             return False
 
+class GenreInBase(BaseFilter):
+    def __init__(self) -> None:
+        pass
+
+    async def __call__(self, message: Message) -> bool:
+
+        print(message.text)
+
+        if message.text in genre_list:
+            print(f'Yess, {message.text} in list')
+            return True
+        else:
+            print(f'NOOOO, {message.text} not in list')
+            return False
+
 class FSM(StatesGroup):
     fill_name = State()
+
+    fill_genre = State()
+
+    choose_film = State()
+
     fill_fisrt_film=State()
     fill_second_film=State()
     fill_third_film=State()
-    recomendation=State()
+    recomendation_state=State()
 
 
 def log(message):
@@ -72,6 +97,7 @@ def log(message):
                                                               message.from_user.last_name,
                                                               str(message.from_user.id), message.text))
     file_object.close()
+
 
 # Этот хэндлер будет срабатывать на команду /start вне состояний
 # и предлагать перейти к заполнению анкеты, отправив команду /fillform
@@ -102,7 +128,7 @@ async def process_cancel_command(message: Message):
 @dp.message(Command(commands='help'))
 async def process_start_command(message: Message):
     log(message)
-    await message.answer(text=f'Я команда hel[]')
+    await message.answer(text=f'Я команда help, скоро здесь что-то будет')
 
 
 
@@ -130,6 +156,12 @@ async def process_fillform_command(message: Message, state: FSMContext):
     await state.set_state(FSM.fill_name)
 
 
+
+
+"""
+NEW!!!
+"""
+
 # Этот хэндлер будет срабатывать, если введено корректное имя
 # и переводить в состояние ожидания ввода возраста
 @dp.message(StateFilter(FSM.fill_name), F.text.isalpha())
@@ -138,12 +170,11 @@ async def process_name_sent(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
     log(message)
     await message.answer(text=f"Спасибо, {message.text}!\n\nА теперь давай перейдем к твоим предпочтениям в фильмах!\n"
-                         'Cейчас я тебя попрошу написать отдельными сообщениями по очереди три твоих любимых фильма\n'
-                         'И на их основе мы дадим тебе лучшую рекомендацию)))\n\n'
-                         'Введи пожалуйста первый фильм:')
-    # Устанавливаем состояние ожидания ввода возраста
+                         'Cейчас я тебя попрошу тебя выбрать жанр из предложенных в котором ты выберешь фильм для рекомендации',reply_markup=kb_builder_genres.as_markup())
 
-    await state.set_state(FSM.fill_fisrt_film)
+
+
+    await state.set_state(FSM.fill_genre)
 
 
 
@@ -156,6 +187,148 @@ async def warning_not_name(message: Message):
                               'Пожалуйста, введите ваше имя\n\n'
                               'Если вы хотите прервать заполнение анкеты - '
                               'отправьте команду /cancel')
+
+
+
+
+
+
+@dp.message(StateFilter(FSM.fill_genre), GenreInBase())
+async def process_fisrt_film_sent(message: Message, state: FSMContext):
+    await state.update_data(genre=message.text)
+
+    r = requests.post('https://039c-89-109-50-12.ngrok-free.app/api/v1/best_in_genre', json={
+                                                                                            "genre":  message.text})
+
+
+
+    recomendation_list:list=[]
+    resp_dict = r.json()
+    print(type(resp_dict))
+    print(resp_dict)
+    for film in resp_dict["film_list"]:
+        recomendation_list.append(film)
+    for it in recomendation_list:
+        print(it)
+
+
+    kb_builder_films: ReplyKeyboardBuilder = ReplyKeyboardBuilder()
+    buttons_films: list[KeyboardButton] = [KeyboardButton(
+                text=f'{genre}') for genre in recomendation_list]
+    kb_builder_films.row(*buttons_films,width=3)
+    await message.answer(text='Отлично!\n\nА теперь выбери фильм из предложенных или напиши свой',reply_markup=kb_builder_films.as_markup())
+    log(message)
+    await state.set_state(FSM.choose_film)
+
+
+
+
+@dp.message( StateFilter(FSM.fill_genre))
+async def warning_not_genre(message: Message):
+    log(message)
+    await message.answer(
+
+        text='К сожалению такого жанра пока нет в нашей базе, но мы работаем над этим\n\n'
+             'Попробуй ввести что-то из предложенного\n'
+             'Чтобы отменить заполнение анкеты - отправьте команду /cancel')
+
+
+
+
+
+
+@dp.message(StateFilter(FSM.choose_film), FilmInBase())
+async def process_fisrt_film_sent(message: Message, state: FSMContext):
+    await state.update_data(film=message.text)
+    user_dict[message.from_user.id] = await state.get_data()
+    await message.answer(text=f'Поздравляю {user_dict[message.from_user.id]["name"]}, ты успешно заполнил форму!\n\n'
+                         'Подожди пожалуйста немного и у тебя появится возможность получить свою рекомендацию')
+    log(message)
+
+    r = requests.post('https://90a5-89-109-50-12.ngrok-free.app/api/v1/get_recommendations', json={
+                                                                                            "film":  user_dict[message.from_user.id]["film"]})
+
+
+    resp_dict = r.json()
+    print(type(resp_dict))
+    print(resp_dict)
+    recomendation_string:str="\n"
+
+    for anime in resp_dict:
+        print(type(resp_dict[anime]))
+        for key, value in resp_dict[anime].items():
+            recomendation_string= recomendation_string+ "\n"+str(key) +" : "+ str(value)
+
+        recomendation_string= recomendation_string+ "\n"
+
+    print(recomendation_string)
+
+
+
+    await state.update_data(recomendation=recomendation_string)
+    user_dict[message.from_user.id]= await state.get_data()
+    await message.answer(text='Нажми команду /getrecomedation и получишь список того что тебе точно стоит посмотреть)')
+    log(message)
+    await state.clear()
+
+
+
+
+@dp.message( StateFilter(FSM.choose_film))
+async def warning_not_genre(message: Message):
+    log(message)
+    await message.answer(
+
+        text='К сожалению такого фильма пока нет в нашей базе, но мы работаем над этим\n\n'
+             'Попробуй ввести что-то из предложенного\n'
+             'Чтобы отменить заполнение анкеты - отправьте команду /cancel')
+
+
+
+
+
+
+@dp.message(Command(commands='getrecomedation'), StateFilter(default_state))
+async def process_getrecomedation_command(message: Message):
+
+    file_object = open('logs.txt', 'a')
+    # Append 'hello' at the end of file
+    file_object.write(f'\n{message.from_user.full_name}  {message.from_user.id} getrecomedation')
+    # Close the file
+    file_object.close()
+    log(message)
+    if message.from_user.id in user_dict and user_dict[message.from_user.id]["film"]:
+
+
+        await message.answer(
+            text=f' {user_dict[message.from_user.id]["name"]}, ты выбрал\n'
+                    f'{user_dict[message.from_user.id]["film"]} любимым фильмом\n'
+                    f' в жанре {user_dict[message.from_user.id]["genre"]}\n'
+                    f'Держи свою рекомендацю))\n'
+                     f'{user_dict[message.from_user.id]["recomendation"]}\n')
+    else:
+        # Если анкеты пользователя в базе нет - предлагаем заполнить
+        await message.answer(text='Вы еще не заполняли анкету. '
+                                  'Чтобы приступить - отправьте '
+                                  'команду /fillform')
+
+
+
+"""
+END OF NEW!!!
+"""
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @dp.message(StateFilter(FSM.fill_fisrt_film), FilmInBase())

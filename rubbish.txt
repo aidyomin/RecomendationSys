@@ -1,0 +1,19 @@
+    r = requests.post('https://90a5-89-109-50-12.ngrok-free.app/api/v1/get_recommendations', json={
+                                                                                            "film_name1":  user_dict[message.from_user.id]["first_film"],
+                                                                                            "film_name2": user_dict[message.from_user.id]["second_film"],
+                                                                                           "film_name3": user_dict[message.from_user.id]["third_film"]})
+
+
+    resp_dict = r.json()
+    print(type(resp_dict))
+    print(resp_dict)
+    recomendation_string:str="\n"
+
+    for anime in resp_dict:
+        print(type(resp_dict[anime]))
+        for key, value in resp_dict[anime].items():
+            recomendation_string= recomendation_string+ "\n"+str(key) +" : "+ str(value)
+
+        recomendation_string= recomendation_string+ "\n"
+
+    print(recomendation_string)
