@@ -128,7 +128,10 @@ async def process_cancel_command(message: Message):
 @dp.message(Command(commands='help'))
 async def process_start_command(message: Message):
     log(message)
-    await message.answer(text=f'Я команда help, скоро здесь что-то будет')
+    await message.answer(text=f'У тебя в распоряжении есть несколько команд\n'
+                         '/cancel используй ее, если хочешь отменить то что заполнил или заполнить повторно\n'
+                         '/fillform для того чтобы начать заполнять анкету\n'
+                         )
 
 
 
